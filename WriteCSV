@@ -1,0 +1,25 @@
+import sys, os,re, shutil, numpy as np, time, subprocess
+import os.path
+from CSVFuncts import *
+
+# writeCSV()
+os.chdir("./Results/")
+startCsvFile()
+path = "./"
+count = 0
+for folder in os.listdir("./"):
+    # print("folder: " + str(folder))
+    if folder == "summary.csv":
+        # print("continuing...")
+        continue
+    if folder == "one":
+        # print("continuing...")
+        continue
+    moleculeName, csdCode = getMoleculeInfo(folder)
+    path = "./" + folder + "/completed/"
+    # print("current path: " + str(path))
+    for file in os.listdir(path):
+        if file.split(".")[1] == "out":
+            # print("file: " + str(file))
+            parseOutFile(path + file, moleculeName, csdCode)
+    count += 1

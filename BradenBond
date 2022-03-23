@@ -1,0 +1,114 @@
+#!/bin/env python3
+#from bin.BradenBondFuncts import homolysisHeterolysis
+# from bin.BradenBondFuncts import extractEnergy
+import os, sys
+import os.path
+import time
+#Imports the functions from TSSFuncts
+from BradenBondFuncts import *
+
+start = time.time()
+inputs ={}
+# print("Parsing Inputs and Defaults\n\n")
+#Sets Defaults for the Gaussian Program from the defaults file
+defaultresults = default()
+#Overrides any of the defaults that are specified in the input file
+inputs = parseInput(sys.argv[1], defaultresults, sys.argv[2])
+#makes directories(crest, modred, gaussianTS, completed)
+makeDirectories()
+#checks if the user wants to run crest conformer calculations, check with Taylor ???
+run_crest = os.environ.get("RUN_CREST")
+oF = open("mr_test_file.txt", 'w')
+oF.write("value of inputs at run_crest: " + inputs["run_crest"] + "\n")
+#runs crest on original xyz to find conformers
+if "yes" in run_crest: #check with Taylor???
+    oF.write("crest is being used")
+    oF.close()
+    runCrest(sys.argv[2], inputs["leniency"], inputs)
+    #makes modred files from crest conformers and puts them in the modred folder
+    modredCrest("crest_conformers.xyz",inputs)
+#does not run crest
+else:
+    oF.write("crest is not being used")
+    oF.close()
+    setChargeMultBonds(sys.argv[2], inputs["leniency"], inputs)
+    modredNoCrest(sys.argv[2],inputs)
+#inputs["opt"] = "(ts,noeigen,calcfc)"
+inputs["opt"] = "(ts, noeigen, calcall)" #FOR NATHAN??? does this need to change??
+# print("Initializing Gaussian Runs for all conformations\n\n")
+if not os.path.isfile("completed/" + str(os.environ.get("MOLECULE_NAME")) + ".out"):
+    file_name = "completed/" + str(os.environ.get("MOLECULE_NAME") + ".out")
+    oF = open(file_name, "w")
+    oF.close()
+#Runs gaussian inputs and tracks whether they are done or not. Once done they run gaussian TS search
+gaussianProcesses(inputs)
+#check that no errors in modred or gaussian have occurred 
+os.chdir("../")
+iF = open("status", "r")
+line = iF.readline()
+if "Done" in line:
+    os.environ["NO_ERRORS"] = "True"
+    for file in os.listdir("./modred/"):
+        if file.split(".")[1] == "log":
+            extractEnergy("./modred/" + file, "./completed/" + str(os.environ.get("MOLECULE_NAME")) + ".out")
+    homolysisHeterolysis()
+    if os.path.isdir("./newMetalXYZs/"):
+        path = "./newMetalXYZs/"
+    elif os.path.isdir("../newMetalXYZs/"): 
+        path = "../newMetalXYZs/"
+    elif os.path.isdir("./newMetalXYZs"):
+        path = "./newMetalXYZs"
+    elif os.path.isdir("../newMetalXYZs"):
+        path = "../newMetalXYZs"
+    run_type = os.getenv("RUN_TYPE")
+    key_words = []
+    if "homolysis" in run_type:
+        key_words.append("homolysis")
+    if "heterolysisPositive" in run_type:
+        key_words.append("heterolysisPositive")
+    if "heterolysisNegative" in run_type:
+        key_words.append("heterolysisNegative")
+    if "all" in run_type:
+        key_words.append("homolysis")
+        key_words.append("heterolysisPositive")
+        key_words.append("heterolysisNegative")
+    for file in os.listdir(path):
+        #run the same processes on these new three xyz files
+        for word in key_words:
+            if word in file:
+                setChargeMultBonds(path + file, inputs["leniency"], inputs)
+                modredNoCrest(path + file, inputs)
+                inputs["opt"] = "(ts, noeigen, calcall)" #FOR NATHAN??? does this need to change??
+                gaussianProcesses(inputs)
+                os.chdir("../")
+    for file in os.listdir(path):
+        #run the frozen point processes on these new three xyz files
+        for word in key_words:
+            if word in file:
+                os.environ['SINGLE_POINT'] = "yes"
+                setChargeMultBonds(path + file, inputs["leniency"], inputs)
+                modredNoCrest(path + file, inputs)
+                inputs["opt"] = "(ts, noeigen, calcall)" #FOR NATHAN??? does this need to change??
+                gaussianProcesses(inputs)
+                os.chdir("../")
+    oF.close()
+    sucessfulRunTypes = moveLogFiles()
+    #format time taken
+    end = time.time()
+    hours, rem = divmod(end-start, 3600)
+    minutes, seconds = divmod(rem, 60)
+    time_formated = "{:0>2}:{:0>2}:{:05.2f}".format(int(hours),int(minutes),seconds)
+    os.environ["TIME"] = time_formated
+    #create final output summary file
+    finalOutput(sucessfulRunTypes)
+else:
+    end = time.time()
+    hours, rem = divmod(end-start, 3600)
+    minutes, seconds = divmod(rem, 60)
+    time_formated = "{:0>2}:{:0>2}:{:05.2f}".format(int(hours),int(minutes),seconds)
+    os.environ["TIME"] = time_formated
+    oF.close()
+    os.environ["NO_ERRORS"] = line
+    finalOutput()
+iF.close()
+

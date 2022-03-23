@@ -1,0 +1,61 @@
+#!/bin/env python3
+#from bin.BradenBondFuncts import homolysisHeterolysis
+# from bin.BradenBondFuncts import extractEnergy
+import sys, os,re, shutil, numpy as np, time, subprocess
+import os.path
+from CSVFuncts import *
+#Imports the BradenBond script
+# from BradenBond import *
+
+if not os.path.isdir("Results"):
+    os.mkdir("Results")
+os.chdir("Results/")
+for file in os.listdir("../xyzFiles/"):
+    os.mkdir(file.split(".")[0])
+    #This block is for writing the sh file to have the correct path so it can access the .in file and the correct xyz file
+    xyz_name = file
+    name_without_xyz = file.split(".")[0]
+    write_file = open("./" + name_without_xyz + "/" + name_without_xyz + ".sh", "w", newline='\n')
+    write_file.write("#!/bin/bash\n\n")
+
+    # write_file.write("#SBATCH --time=36:00:00   # walltime\n")
+    # write_file.write("#SBATCH --nodes=1   # number of nodes\n")
+    # # write_file.write("#SBATCH --qos=standby\n")# write_file.write("#SBATCH --partition=m9\n")
+    # write_file.write("#SBATCH --ntasks-per-node=32\n")#write_file.write("#SBATCH --cpus-per-task=32\n")
+    # write_file.write("#SBATCH --mem=500G   # memory per CPU core\n\n")
+
+    write_file.write("#SBATCH --nodes=1\n")
+    write_file.write("#SBATCH --ntasks-per-node=28\n")
+    write_file.write("#SBATCH --mem=100GB\n")
+    write_file.write("#SBATCH --export=ALL\n")
+    write_file.write("#SBATCH -t 72:00:00\n")
+    # write_file.write("#SBATCH --partition=m9\n")
+    # write_file.write("#SBATCH --qos=standby\n\n")
+
+    write_file.write("# Set the max number of threads to use for programs using OpenMP. Should be <= ppn. Does nothing if the program doesn't use OpenMP.\n")
+    write_file.write("export OMP_NUM_THREADS=$SLURM_CPUS_ON_NODE\n\n")
+    write_file.write("# LOAD MODULES, INSERT CODE, AND RUN YOUR PROGRAMS HERE\n\n")
+    write_file.write("module load g16\n\n\n")
+    write_file.write("[ `cat /proc/cpuinfo | grep -m 1 vendor_id | awk '{print $3}'` == 'AuthenticAMD' ] && export PGI_FASTMATH_CPU=haswell\n")
+    # write_file.write("~/BradenBond/bin/BradenBond ~/compute/BradenBondFirstTest/xyzFiles/one.in " + "~/compute/BradenBondFirstTest/" + name_without_xyz + "/" + file)
+    write_file.write("~/BradenBond/bin/BradenBond ~/BradenBond/bin/xyzFiles/one.in " + "~/BradenBond/bin/Results/" + name_without_xyz + "/" + file)
+    write_file.close()
+    #starts the job using the subprocess Popen command 
+    shutil.copy("../xyzFiles/" + file, "./" + name_without_xyz + "/")
+    shutil.copy("../basisSetTemplate.com", "./" + name_without_xyz + "/")
+    # subprocess.Popen(["sbatch", "-C", "m9", file.split(".")[0] + "/test.sh"], stdout = subprocess.PIPE, stdin = subprocess.PIPE)
+    # continue
+processes = []
+for folder in os.listdir("./"):
+    os.chdir(folder)
+    #os.system("sbatch -C m9 " + folder + ".sh")
+    processes.append(subprocess.Popen(["sbatch", folder + ".sh"], stdout = subprocess.PIPE, stdin = subprocess.PIPE))
+    os.chdir("../")
+numProcesses = len(processes)
+# print(processes)
+finishedProcesses = 0
+# while finishedProcesses != numProcesses:
+#     for p in processes:
+#         if p.poll() == None:
+#             finishedProcesses += 1
+# writeCSV()
