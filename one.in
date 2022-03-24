@@ -1,0 +1,10 @@
+basis:Def2SVP
+method:PBE1PBE
+memper:48
+metal:Def2SVP
+conformational_leniency:3
+confs:1
+extra:em=gd3
+run_crest:no
+basic_optimization:yes
+run_type:homolysis
